@@ -589,6 +589,31 @@ div[data-testid="stDataFrame"] {
     font-size: 12px;
     line-height: 1.5;
 }
+
+/* CHATBOT RESPONSE TYPOGRAPHY */
+
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] p,
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] li,
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] span {
+    font-size: 13px !important;
+    color: #24364B !important;
+    line-height: 1.6 !important;
+}
+
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] h1,
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] h2,
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] h3,
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] h4 {
+    font-size: 13px !important;
+    color: #102A43 !important;
+    font-weight: 700 !important;
+}
+
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] strong {
+    color: #102A43 !important;
+    font-weight: 700 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
