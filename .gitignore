@@ -221,3 +221,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local data and personal files
+data/local/
+*.xlsx
+*.csv
+
+# Streamlit local configuration
+.streamlit/config.toml
+
+# OS files
+.DS_Store
+Thumbs.db
