@@ -12,6 +12,7 @@ from src.risk_explainer import explain_risk
 from src.insight_generator import generate_portfolio_insights
 from src.early_warning import assess_early_warning
 from src.debtor_investigation import investigate_debtor
+from src.llm_assistant import generate_risk_answer
 
 
 # =========================================================
@@ -533,6 +534,60 @@ div[data-testid="stDataFrame"] {
     .kpi-value {
         font-size: 20px;
     }
+}
+
+/* FLOATING AI CHATBOT */
+
+.st-key-chat_launcher {
+    position: fixed;
+    right: 25px;
+    bottom: 22px;
+    z-index: 100001;
+    width: 62px;
+}
+
+.st-key-chat_launcher button {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: #102A43;
+    color: white;
+    border: 2px solid white;
+    box-shadow: 0 5px 18px rgba(16, 42, 67, 0.30);
+    font-size: 25px;
+}
+
+.st-key-chat_launcher button:hover {
+    background: #246BFD;
+    color: white;
+    border-color: white;
+}
+
+.st-key-floating_chat_panel {
+    position: fixed;
+    right: 24px;
+    bottom: 94px;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    max-height: 70vh;
+    overflow-y: auto;
+    z-index: 100000;
+    background: white;
+    border: 1px solid #DCE5EF;
+    border-radius: 16px;
+    padding: 14px;
+    box-shadow: 0 8px 35px rgba(16, 42, 67, 0.22);
+}
+
+.st-key-floating_chat_panel [data-testid="stChatMessage"] {
+    padding: 8px;
+    border-radius: 10px;
+}
+
+.st-key-floating_chat_panel [data-testid="stMarkdownContainer"] p {
+    color: #24364B;
+    font-size: 12px;
+    line-height: 1.5;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -2604,3 +2659,227 @@ elif page == "Action Center":
 
     else:
         show_empty("No portfolio records.")
+
+
+# =========================================================
+# 20. GLOBAL FLOATING AI CHATBOT
+# =========================================================
+
+# Initialize chatbot state
+if "ai_chat_history" not in st.session_state:
+    st.session_state.ai_chat_history = []
+
+if "ai_chat_open" not in st.session_state:
+    st.session_state.ai_chat_open = False
+
+
+# =========================================================
+# BUILD PORTFOLIO CONTEXT
+# =========================================================
+
+risk_summary = (
+    filtered_df["risk_level"].value_counts().to_dict()
+    if n > 0 else {}
+)
+
+quality_summary = (
+    filtered_df["credit_quality"].value_counts().to_dict()
+    if n > 0 else {}
+)
+
+top_debtors = []
+
+if not ranking_df.empty:
+
+    for _, debtor in ranking_df.head(5).iterrows():
+
+        top_debtors.append({
+            "debtor_id": safe_text(debtor.get("debtor_id")),
+            "risk_level": safe_text(debtor.get("risk_level")),
+            "risk_score": safe_float(debtor.get("risk_score")),
+            "kolektibilitas": safe_text(debtor.get("kolektibilitas")),
+            "tunggakan_hari": safe_float(debtor.get("tunggakan_hari")),
+            "ews_level": safe_text(debtor.get("ews_level")),
+            "recommended_action": safe_text(
+                debtor.get("recommended_action")
+            )
+        })
+
+
+portfolio_context = f"""
+PORTFOLIO SUMMARY
+
+Total Debtors: {n}
+High Risk: {high_risk_count}
+Medium Risk: {medium_risk_count}
+Low Risk: {low_risk_count}
+
+Average Risk Score: {average_risk_score:.2f}
+Average DTI: {average_dti:.2%}
+Average Delinquency: {average_delinquency:.1f} days
+
+Risk Distribution:
+{risk_summary}
+
+Credit Quality Distribution:
+{quality_summary}
+
+TOP PRIORITY DEBTORS:
+{top_debtors}
+
+IMPORTANT:
+This application uses synthetic demonstration data.
+Do not treat the information as actual bank customer data.
+Do not invent borrower information or portfolio figures.
+"""
+
+
+# =========================================================
+# CHATBOT LAUNCHER
+# =========================================================
+
+with st.container(key="chat_launcher"):
+
+    if st.button(
+        "✦",
+        key="toggle_ai_chat",
+        help="Open Banking AI Copilot"
+    ):
+        st.session_state.ai_chat_open = (
+            not st.session_state.ai_chat_open
+        )
+        st.rerun()
+
+
+# =========================================================
+# FLOATING CHAT PANEL
+# =========================================================
+
+if st.session_state.ai_chat_open:
+
+    with st.container(
+        key="floating_chat_panel",
+        border=True
+    ):
+
+        header_left, header_right = st.columns([4, 1])
+
+        with header_left:
+            st.markdown("### ✦ Banking AI Copilot")
+            st.caption("Your intelligent credit risk assistant")
+
+        with header_right:
+            if st.button(
+                "✕",
+                key="close_ai_chat"
+            ):
+                st.session_state.ai_chat_open = False
+                st.rerun()
+
+        st.divider()
+
+        st.caption(
+            f"Analyzing {n:,} portfolio records "
+            "based on current dashboard filters."
+        )
+
+        # Conversation history
+        for message in st.session_state.ai_chat_history:
+
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # Suggested questions
+        with st.expander("Suggested questions"):
+
+            suggestions = [
+                "Bagaimana kondisi risiko portofolio saat ini?",
+                "Debitur mana yang membutuhkan perhatian segera?",
+                "Apa indikator early warning yang paling penting?",
+                "Apa tindakan yang perlu diprioritaskan?"
+            ]
+
+            for suggestion in suggestions:
+
+                if st.button(
+                    suggestion,
+                    key=f"suggestion_{suggestions.index(suggestion)}",
+                    use_container_width=True
+                ):
+                    st.session_state.ai_pending_question = suggestion
+                    st.rerun()
+
+        # Chat input
+        with st.form(
+            "floating_ai_chat_form",
+            clear_on_submit=True
+        ):
+
+            question_input = st.text_input(
+                "Message",
+                placeholder="Ask about portfolio risk..."
+            )
+
+            submitted = st.form_submit_button(
+                "Send ✦",
+                use_container_width=True
+            )
+
+        # Handle submitted question
+        question = None
+
+        if submitted and question_input.strip():
+            question = question_input.strip()
+
+        # Handle suggested question
+        if st.session_state.get("ai_pending_question"):
+            question = st.session_state.pop(
+                "ai_pending_question"
+            )
+
+        if question:
+
+            st.session_state.ai_chat_history.append({
+                "role": "user",
+                "content": question
+            })
+
+            previous_messages = (
+                st.session_state.ai_chat_history[:-1]
+            )
+
+            conversation_context = "\n".join([
+                f"{message['role'].upper()}: {message['content']}"
+                for message in previous_messages
+            ])
+
+            full_context = f"""
+{portfolio_context}
+
+PREVIOUS CONVERSATION:
+{conversation_context}
+"""
+
+            with st.spinner("Gemini is analyzing..."):
+
+                answer = generate_risk_answer(
+                    question=question,
+                    debtor_context=full_context
+                )
+
+            st.session_state.ai_chat_history.append({
+                "role": "assistant",
+                "content": answer
+            })
+
+            st.rerun()
+
+        # Clear conversation
+        if st.session_state.ai_chat_history:
+
+            if st.button(
+                "Clear conversation",
+                key="clear_floating_chat"
+            ):
+                st.session_state.ai_chat_history = []
+                st.rerun()
