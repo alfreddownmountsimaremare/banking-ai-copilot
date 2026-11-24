@@ -233,3 +233,4 @@ data/local/
 # OS files
 .DS_Store
 Thumbs.db
+!data/sample/debtors.csv
